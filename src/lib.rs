@@ -1,7 +1,7 @@
-use chrono::Weekday;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use chrono::Weekday;
 use serde::{Deserialize, Serialize};
 
 mod impls;
@@ -85,3 +85,6 @@ pub struct CommitsPerWeekday(pub(crate) HashMap<Weekday, HashMap<Author, SimpleS
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitsPerDayHour(pub(crate) HashMap<u32, HashMap<Author, SimpleStat>>);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitsPerMonth(pub(crate) HashMap<String, HashMap<Author, SimpleStat>>);

@@ -166,7 +166,11 @@ mod test {
 
 		let mut total_commits = 0;
 
-		for (key, value) in commits_per_months.iter().sorted_by_key(|(key, _)| key.to_string()) {
+		for (key, value) in commits_per_months
+			.detailed_stats()
+			.iter()
+			.sorted_by_key(|(key, _)| key.to_string())
+		{
 			println!("date: {key}");
 
 			for (author, stats) in value.iter() {
@@ -178,6 +182,13 @@ mod test {
 		}
 
 		assert_eq!(commits.len(), total_commits);
+
+		let global_stats = commits_per_months.global_stats();
+		println!("global stats:");
+		println!("--------------------------------------------");
+		for (key, value) in global_stats.iter().sorted_by_key(|(key, _)| key.to_string()) {
+			println!("date: {key}, {}", value);
+		}
 	}
 
 	#[test]

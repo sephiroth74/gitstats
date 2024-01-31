@@ -8,8 +8,8 @@ use lazy_static::lazy_static;
 
 use crate::traits::{CommitStatsExt, GlobalStatsExt};
 use crate::{
-	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsPerDayHour, CommitsPerWeekday, GlobalStat,
-	MinimalCommitDetail, SimpleStat, SortStatsBy,
+	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsPerDayHour, CommitsPerMonth,
+	CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
 };
 
 lazy_static! {
@@ -451,7 +451,7 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 		hashmap
 	}
 
-	fn commits_per_month(mut self) -> HashMap<String, HashMap<Author, SimpleStat>> {
+	fn commits_per_month(mut self) -> CommitsPerMonth {
 		let mut result: HashMap<String, HashMap<Author, SimpleStat>> = HashMap::new();
 		if self.len() > 1 {
 			let last = self.last().unwrap();
@@ -505,7 +505,7 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 				}
 			}
 		}
-		result
+		CommitsPerMonth(result)
 	}
 
 	fn commits_per_weekday(mut self) -> CommitsPerWeekday {
@@ -594,3 +594,24 @@ impl CommitsPerDayHour {
 }
 
 // endregion CommitsPerDayHour
+
+// region CommitsPerMonth
+
+impl CommitsPerMonth {
+	pub fn detailed_stats(&self) -> &HashMap<String, HashMap<Author, SimpleStat>> {
+		&self.0
+	}
+
+	pub fn global_stats(&self) -> HashMap<String, SimpleStat> {
+		let mut global_map: HashMap<String, SimpleStat> = HashMap::new();
+		for (key, value) in self.0.iter() {
+			global_map.insert(key.clone(), SimpleStat::new());
+			for (_, stats) in value.iter() {
+				*global_map.get_mut(key).unwrap() += stats.clone();
+			}
+		}
+		global_map
+	}
+}
+
+// endregion CommitsPerMonth
