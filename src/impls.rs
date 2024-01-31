@@ -509,20 +509,20 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 	}
 
 	fn commits_per_weekday(mut self) -> CommitsPerWeekday {
-		let mut final_map: HashMap<Weekday, HashMap<Author, SimpleStat>> = HashMap::from([
-			(Weekday::Mon, HashMap::new()),
-			(Weekday::Tue, HashMap::new()),
-			(Weekday::Wed, HashMap::new()),
-			(Weekday::Thu, HashMap::new()),
-			(Weekday::Fri, HashMap::new()),
-			(Weekday::Sat, HashMap::new()),
-			(Weekday::Sun, HashMap::new()),
+		let mut final_map: HashMap<u8, HashMap<Author, SimpleStat>> = HashMap::from([
+			(Weekday::Mon.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Tue.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Wed.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Thu.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Fri.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Sat.num_days_from_monday() as u8, HashMap::new()),
+			(Weekday::Sun.num_days_from_monday() as u8, HashMap::new()),
 		]);
 
 		for commit in self.iter_mut() {
 			let author = commit.author.to_owned();
 			let datetime = commit.get_author_datetime();
-			let weekday = datetime.weekday();
+			let weekday = datetime.weekday().num_days_from_monday() as u8;
 			if !final_map.get(&weekday).unwrap().contains_key(&author) {
 				final_map.get_mut(&weekday).unwrap().insert(author.clone(), SimpleStat::new());
 			}
@@ -556,14 +556,14 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 // region CommitsPerWeekday
 
 impl CommitsPerWeekday {
-	pub fn detailed_stats(&self) -> &HashMap<Weekday, HashMap<Author, SimpleStat>> {
+	pub fn detailed_stats(&self) -> &HashMap<u8, HashMap<Author, SimpleStat>> {
 		&self.0
 	}
 
-	pub fn global_stats(&self) -> HashMap<Weekday, SimpleStat> {
-		let mut global_map: HashMap<Weekday, SimpleStat> = HashMap::new();
+	pub fn global_stats(&self) -> HashMap<u8, SimpleStat> {
+		let mut global_map: HashMap<u8, SimpleStat> = HashMap::new();
 		for (key, value) in self.0.iter() {
-			global_map.insert(key.clone(), SimpleStat::new());
+			global_map.insert(*key, SimpleStat::new());
 			for (_, stats) in value.iter() {
 				*global_map.get_mut(key).unwrap() += stats.clone();
 			}

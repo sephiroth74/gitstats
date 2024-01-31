@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use chrono::Weekday;
 use serde::{Deserialize, Serialize};
 
 mod impls;
@@ -80,8 +79,8 @@ pub enum SortStatsBy {
 	LinesDeleted,
 }
 
-#[derive(Debug, Clone)]
-pub struct CommitsPerWeekday(pub(crate) HashMap<Weekday, HashMap<Author, SimpleStat>>);
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitsPerWeekday(pub(crate) HashMap<u8, HashMap<Author, SimpleStat>>);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitsPerDayHour(pub(crate) HashMap<u32, HashMap<Author, SimpleStat>>);

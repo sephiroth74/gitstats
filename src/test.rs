@@ -4,9 +4,10 @@ mod test {
 	use std::ops::Deref;
 	use std::time::{Duration, Instant};
 
-	use chrono::{DateTime, Months, Utc};
+	use chrono::{DateTime, Months, Utc, Weekday};
 	use itertools::Itertools;
 	use lazy_static::lazy_static;
+	use num_traits::cast::FromPrimitive;
 
 	use crate::traits::{CommitStatsExt, GlobalStatsExt};
 	use crate::{Author, CommitArgs, CommitHash, Repo, SortStatsBy};
@@ -217,12 +218,9 @@ mod test {
 
 		let mut total_commits = 0;
 
-		for (key, value) in commits_per_weekday
-			.detailed_stats()
-			.iter()
-			.sorted_by_key(|a| a.0.number_from_monday())
-		{
-			println!("WeekDay: {key}");
+		for (key, value) in commits_per_weekday.detailed_stats().iter().sorted_by_key(|a| a.0) {
+			let weekday = Weekday::from_u8(*key).unwrap();
+			println!("WeekDay: {weekday:?}");
 			for (author, stats) in value.iter() {
 				println!("{author} : {stats}");
 				total_commits += stats.commits_count;
@@ -240,8 +238,8 @@ mod test {
 
 		total_commits = 0;
 
-		for (key, value) in global_stats.iter().sorted_by_key(|a| a.0.number_from_monday()) {
-			println!("WeekDay: {key}, stats: {value}");
+		for (key, value) in global_stats.iter().sorted_by_key(|a| a.0) {
+			println!("WeekDay: {:?}, stats: {value}", Weekday::from_u8(*key).unwrap());
 			total_commits += value.commits_count;
 		}
 		println!("total commits: {total_commits}");
