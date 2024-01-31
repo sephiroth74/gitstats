@@ -85,7 +85,7 @@ pub trait CommitStatsExt {
 	/// ```
 	///
 	/// It will print something like this:
-	/// ```
+	/// ```bash
 	///
 	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 50.0
 	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡤⠤⠤⠤⠤⠤⠤⠤⠤⠤⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -165,9 +165,9 @@ pub trait CommitStatsExt {
 	///	    for (weekday, hours) in global_stats.iter().enumerate() {
 	///		    for (hour, stats) in hours.iter().enumerate() {
 	///			    let row = rows.get_mut(weekday).unwrap();
-	///			    let current_value = row.get((hour + 1) as usize).unwrap().parse::<usize>().unwrap();
+	///			    let current_value = row.get((hour + 1)).unwrap().parse::<usize>().unwrap();
 	///			    let new_value = current_value + stats.commits_count;
-	///			    *row.get_mut((hour + 1) as usize).unwrap() = new_value.to_string();
+	///			    *row.get_mut((hour + 1)).unwrap() = new_value.to_string();
 	///		    }
 	///	    }
 	///	    table.add_rows(rows);
