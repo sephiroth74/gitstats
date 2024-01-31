@@ -17,6 +17,15 @@ lazy_static! {
 }
 
 impl Repo {
+	/// Create a new instance of a Repository
+	/// # Examples:
+	/// ```rust
+	/// use gitstats::Repo;
+	/// fn main() {
+	///     let repo_dir = "/custom/path/to/repo";
+	///     let repo = Repo::from(&repo_dir);
+	/// }
+	/// ```
 	pub fn new<S: AsRef<OsStr> + ?Sized>(s: &S) -> Self {
 		Repo { inner: PathBuf::from(s) }
 	}
@@ -25,6 +34,20 @@ impl Repo {
 		self.inner.to_str()
 	}
 
+	/// Fetch the repository using the default remote
+	/// # Examples:
+	/// ```rust
+	/// use gitstats::Repo;
+	///
+	/// fn main() {
+	///     let repo_dir = "/custom/path/to/repo";
+	///     let repo = Repo::from(&repo_dir);
+	///     match repo.fetch() {
+	///         Ok(_) => println!("fetch complete"),
+	///         Err(err) => println!("Error: {err}"),
+	///     }
+	/// }
+	/// ```
 	pub fn fetch(&self) -> anyhow::Result<()> {
 		self.git()
 			.arg("fetch")
@@ -34,6 +57,7 @@ impl Repo {
 			.context("Failed to fetch remote")
 	}
 
+	/// Fetch all the remotes
 	pub fn fetch_all(&self) -> anyhow::Result<()> {
 		self.git()
 			.args([
@@ -45,6 +69,22 @@ impl Repo {
 			.context("Failed to fetch remotes")
 	}
 
+	/// Returns a list of commits based on the input arguments
+	/// # Examples:
+	/// ```rust
+	/// use gitstats::Repo;
+	/// use gitstats::CommitArgs;
+	///
+	/// fn main() {
+	/// let repo_dir = "/custom/path/to/repo";
+	///     let repo = Repo::from(&repo_dir);
+	/// 	let commit_args = CommitArgs::default();
+	///     match repo.list_commits(commit_args) {
+	///         Ok(commits) => println!("got commits: {commits}"),
+	///         Err(err) => println!("Error: {err}"),
+	///     }
+	/// }
+	/// ```
 	pub fn list_commits(&self, options: CommitArgs) -> anyhow::Result<Vec<CommitHash>> {
 		options.validate()?;
 		let mut command = self.git().arg("log");
@@ -57,10 +97,28 @@ impl Repo {
 			.collect::<Vec<_>>())
 	}
 
+	/// Extract details from a list of commits
+	/// # Examples:
+	/// ```rust
+	///
+	/// use gitstats::Repo;
+	/// use gitstats::CommitArgs;
+	///
+	/// fn main() {
+	/// let repo_dir = "/custom/path/to/repo";
+	///     let repo = Repo::from(&repo_dir);
+	/// 	let commit_args = CommitArgs::default();
+	///     if let Ok(commits) = repo.list_commits(commit_args) {
+	/// 		let stats = repo.commits_stats(&commits);
+	///     }
+	/// }
+	///
+	/// ```
 	pub fn commits_stats<'c>(&self, commits: &'c Vec<CommitHash>) -> anyhow::Result<Vec<CommitDetail<'c>>> {
 		commits.into_par_iter().map(|commit| self.commit_stats(commit)).collect()
 	}
 
+	/// Extract details from a commit hash
 	pub fn commit_stats<'c>(&self, commit: &'c CommitHash) -> anyhow::Result<CommitDetail<'c>> {
 		let mut command = self.git().with_debug(false);
 		let hash: &str = commit.into();
@@ -137,6 +195,7 @@ impl Repo {
 		Ok(commit)
 	}
 
+	/// Will panic is git is not found
 	fn git(&self) -> CommandBuilder {
 		CommandBuilder::new("git").current_dir(&self.inner).with_debug(true)
 	}

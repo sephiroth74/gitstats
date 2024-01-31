@@ -5,6 +5,7 @@ mod test {
 	use std::time::{Duration, Instant};
 
 	use chrono::{DateTime, Months, Utc, Weekday};
+	use comfy_table::Table;
 	use itertools::Itertools;
 	use lazy_static::lazy_static;
 	use num_traits::cast::FromPrimitive;
@@ -13,7 +14,7 @@ mod test {
 	use crate::{Author, CommitArgs, CommitHash, Repo, SortStatsBy};
 
 	lazy_static! {
-		static ref SINCE: DateTime<Utc> = Utc::now().checked_sub_months(Months::new(3)).unwrap();
+		static ref SINCE: DateTime<Utc> = Utc::now().checked_sub_months(Months::new(6)).unwrap();
 		static ref UNTIL: DateTime<Utc> = Utc::now();
 		static ref COMMIT_ARGS: CommitArgs = CommitArgs::builder()
 			.since(SINCE.timestamp())
@@ -292,6 +293,90 @@ mod test {
 		assert_eq!(commits.len(), total_commits);
 		println!("---------------------------------------------");
 		println!("done. {:?}", ticker.tick().1);
+	}
+
+	#[test]
+	fn test_commits_heatmap() {
+		init_log();
+
+		let mut ticker = Ticker::new();
+		let repo = checkout_repo();
+		println!("checked out repo in {:?}", ticker.tick().0);
+		println!("---------------------------------------------");
+
+		let commits = repo.list_commits(COMMIT_ARGS.deref().clone()).unwrap();
+		let stats = repo.commits_stats(&commits).unwrap();
+
+		ticker.tick();
+		let commits_heatmap = stats.commits_heatmap();
+
+		for (_key, value) in commits_heatmap.detailed_stats().iter() {
+			assert_eq!(7, value.len());
+			for item in value.iter() {
+				assert_eq!(24, item.len());
+			}
+		}
+
+		println!("generated heatmap in {:?}", ticker.tick().0);
+		println!("---------------------------------------------");
+
+		let global_stats = commits_heatmap.global_stats();
+		println!("generated global heatmap in {:?}", ticker.tick().0);
+		println!("---------------------------------------------");
+
+		assert_eq!(7, global_stats.len());
+		for stats in global_stats.iter() {
+			assert_eq!(24, stats.len());
+		}
+
+		let mut table = Table::new();
+		table.set_header(vec![
+			"Weekday/Hour",
+			"0",
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"7",
+			"8",
+			"9",
+			"10",
+			"11",
+			"12",
+			"13",
+			"14",
+			"15",
+			"16",
+			"17",
+			"18",
+			"19",
+			"20",
+			"21",
+			"22",
+			"23",
+		]);
+
+		let mut rows: Vec<Vec<String>> = Vec::new();
+		for weekday in 0..7 {
+			let mut row = vec![Weekday::from_u8(weekday).unwrap().to_string()];
+			for _hour in 0..24 {
+				row.push("0".to_string());
+			}
+			rows.push(row);
+		}
+
+		for (weekday, hours) in global_stats.iter().enumerate() {
+			for (hour, stats) in hours.iter().enumerate() {
+				let row = rows.get_mut(weekday).unwrap();
+				let current_value = row.get((hour + 1) as usize).unwrap().parse::<usize>().unwrap();
+				let new_value = current_value + stats.commits_count;
+				*row.get_mut((hour + 1) as usize).unwrap() = new_value.to_string();
+			}
+		}
+		table.add_rows(rows);
+		println!("{table}");
 	}
 
 	#[test]

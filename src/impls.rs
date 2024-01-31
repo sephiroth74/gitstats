@@ -8,8 +8,8 @@ use lazy_static::lazy_static;
 
 use crate::traits::{CommitStatsExt, GlobalStatsExt};
 use crate::{
-	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsPerDayHour, CommitsPerMonth,
-	CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
+	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsHeatMap, CommitsPerDayHour,
+	CommitsPerMonth, CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
 };
 
 lazy_static! {
@@ -171,6 +171,33 @@ impl CommitArgsBuilder {
 }
 
 impl CommitArgs {
+	/// Creates a new builder
+	/// # Examples:
+	/// ```rust
+	///
+	/// use chrono::{Months, Utc};
+	///
+	///
+	///
+	/// use gitstats::{Author, CommitArgs};
+	/// use gitstats::Repo;
+	///
+	///
+	///
+	/// pub fn main() {
+	/// let repo = Repo::new("/custom/path");
+	/// 	let args = CommitArgs::builder()
+	/// 		.author(Author::try_from("Alessandro Crugnola <alessandro.crugnola@gmail.com>").unwrap())
+	/// 		.since(Utc::now().checked_sub_months(Months::new(3)).unwrap().timestamp())
+	/// 		.until(Utc::now().timestamp())
+	/// 		.exclude_merges(true)
+	/// 		.target_branch("develop")
+	/// 		.build().unwrap();
+	/// 	if let Ok(result) = repo.list_commits(args) {
+	///         println!("got commits: {}", result);
+	///     }
+	/// }
+	/// ```
 	pub fn builder() -> CommitArgsBuilder {
 		CommitArgsBuilder(Default::default())
 	}
@@ -549,6 +576,40 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 		}
 		CommitsPerDayHour(final_map)
 	}
+
+	fn commits_heatmap(self) -> CommitsHeatMap {
+		// hashmap per author -> vec[hour] of vec[stats]
+		let mut final_map: HashMap<Author, Vec<Vec<SimpleStat>>> = HashMap::new();
+		for commit in self.into_iter() {
+			let author = commit.author.to_owned();
+
+			if !final_map.contains_key(&author) {
+				let mut rows = Vec::new();
+				for _weekday in 0..7 {
+					let mut row = Vec::new();
+					for _hour in 0..24 {
+						row.push(SimpleStat::new());
+					}
+					rows.push(row);
+				}
+				final_map.insert(author.clone(), rows);
+			}
+
+			let datetime = commit.get_author_datetime();
+			let weekday = datetime.weekday().num_days_from_monday() as usize;
+			let hour = datetime.hour() as usize;
+
+			*final_map
+				.get_mut(&author)
+				.unwrap()
+				.get_mut(weekday)
+				.unwrap()
+				.get_mut(hour)
+				.unwrap() += commit.into();
+		}
+
+		CommitsHeatMap(final_map)
+	}
 }
 
 // endregion CommitStatsExt
@@ -615,3 +676,36 @@ impl CommitsPerMonth {
 }
 
 // endregion CommitsPerMonth
+
+// region CommitsHeatmap
+
+impl CommitsHeatMap {
+	pub fn detailed_stats(&self) -> &HashMap<Author, Vec<Vec<SimpleStat>>> {
+		&self.0
+	}
+
+	pub fn global_stats(&self) -> Vec<Vec<SimpleStat>> {
+		// weekday x hour
+
+		let mut final_map: Vec<Vec<SimpleStat>> = Vec::new();
+		for _weekday in 0..7 {
+			let mut row = Vec::new();
+			for _hour in 0..24 {
+				row.push(SimpleStat::new());
+			}
+			final_map.push(row);
+		}
+
+		for (_author, author_stats) in self.0.iter() {
+			for (weekday, weekday_stats) in author_stats.iter().enumerate() {
+				for (hour, hour_stats) in weekday_stats.iter().enumerate() {
+					*final_map.get_mut(weekday).unwrap().get_mut(hour).unwrap() += hour_stats.clone();
+				}
+			}
+		}
+
+		final_map
+	}
+}
+
+// endregion CommitsHeatmap

@@ -87,3 +87,8 @@ pub struct CommitsPerDayHour(pub(crate) HashMap<u32, HashMap<Author, SimpleStat>
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitsPerMonth(pub(crate) HashMap<String, HashMap<Author, SimpleStat>>);
+
+///
+/// Contains an hashmap where the key is the Author and the value is a matrix[weekday, hour] of stats
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitsHeatMap(pub(crate) HashMap<Author, Vec<Vec<SimpleStat>>>);
