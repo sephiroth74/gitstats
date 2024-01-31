@@ -80,6 +80,9 @@ pub enum SortStatsBy {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct CommitsPerAuthor<'a>(pub(crate) HashMap<Author, Vec<MinimalCommitDetail<'a>>>);
+
+#[derive(Debug, Clone, Serialize)]
 pub struct CommitsPerWeekday(pub(crate) HashMap<u8, HashMap<Author, SimpleStat>>);
 
 #[derive(Debug, Clone, Serialize)]

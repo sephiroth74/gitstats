@@ -9,8 +9,9 @@ mod test {
 	use itertools::Itertools;
 	use lazy_static::lazy_static;
 	use num_traits::cast::FromPrimitive;
+	use textplots::{AxisBuilder, LabelBuilder, LabelFormat, LineStyle, Plot, Shape, TickDisplay, TickDisplayBuilder};
 
-	use crate::traits::{CommitStatsExt, GlobalStatsExt};
+	use crate::traits::CommitStatsExt;
 	use crate::{Author, CommitArgs, CommitHash, Repo, SortStatsBy};
 
 	lazy_static! {
@@ -93,11 +94,11 @@ mod test {
 		assert_eq!(commits.len(), stats.len());
 
 		let mut ticker = Ticker::new();
-		let reduced = stats.reduced_stats();
-		println!("generated reduced stats in {:?}", ticker.tick().0);
+		let commits_per_author = stats.commits_per_author();
+		println!("generated commits per author stats in {:?}", ticker.tick().0);
 		println!("-----------------------------------------------");
 
-		for (author, entry) in reduced.iter() {
+		for (author, entry) in commits_per_author.detailed_stats().iter() {
 			println!("Author: {}", author);
 			println!("\ttotal commits: {}", entry.len());
 			let mut k = 0;
@@ -122,20 +123,31 @@ mod test {
 
 		let stats = repo.commits_stats(&commits).unwrap();
 		assert_eq!(commits.len(), stats.len());
-
-		let reduced = stats.reduced_stats();
+		let commits_per_author = stats.commits_per_author();
 
 		ticker.tick();
-		let global_stats = reduced.global_stats(SortStatsBy::LinesAdded);
+		let mut global_stats = commits_per_author.global_stats(SortStatsBy::LinesAdded);
+		global_stats.sort_by(|a, b| b.commits_count.cmp(&a.commits_count));
+
 		println!("generated contributor's stats in {:?}", ticker.tick().0);
 		println!("-----------------------------------------------");
 
-		println!("Contributors Stats:");
+		let mut table = Table::new();
+		table.set_header([
+			"Author", "Commits", "Lines",
+		]);
+
 		for global_stat in global_stats.iter() {
-			println!("{}", global_stat);
+			let commits_count = global_stat.commits_count;
+			let total_lines = global_stat.stats.lines_added;
+			table.add_row([
+				(&global_stat.author).name.to_string(),
+				commits_count.to_string(),
+				total_lines.to_string(),
+			]);
 		}
 
-		println!("-----------------------------------------------");
+		println!("{table}");
 	}
 
 	#[test]
@@ -191,6 +203,24 @@ mod test {
 		for (key, value) in global_stats.iter().sorted_by_key(|(key, _)| key.to_string()) {
 			println!("date: {key}, {}", value);
 		}
+
+		let mut points = Vec::new();
+		let start = Utc::now().checked_sub_months(Months::new(6)).unwrap();
+
+		for (index, value) in global_stats.iter().sorted_by_key(|(key, _)| key.to_string()).enumerate() {
+			points.push((index as f32, value.1.commits_count as f32));
+		}
+
+		textplots::Chart::new_with_y_range(100, 50, 0.0, 5.0, 0.0, 50.0)
+			.lineplot(&Shape::Bars(&points))
+			.x_axis_style(LineStyle::Solid)
+			.y_axis_style(LineStyle::Solid)
+			.y_tick_display(TickDisplay::Dense)
+			.x_label_format(LabelFormat::Custom(Box::new(move |val| {
+				let new_start = start.checked_add_months(Months::new(val as u32)).unwrap();
+				format!("{}", new_start.format("%Y-%m"))
+			})))
+			.display();
 	}
 
 	#[test]

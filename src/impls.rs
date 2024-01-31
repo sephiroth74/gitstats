@@ -6,10 +6,10 @@ use anyhow::{anyhow, Context};
 use chrono::{DateTime, Datelike, Months, NaiveDateTime, Timelike, Utc, Weekday};
 use lazy_static::lazy_static;
 
-use crate::traits::{CommitStatsExt, GlobalStatsExt};
+use crate::traits::CommitStatsExt;
 use crate::{
-	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsHeatMap, CommitsPerDayHour,
-	CommitsPerMonth, CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
+	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsHeatMap, CommitsPerAuthor,
+	CommitsPerDayHour, CommitsPerMonth, CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
 };
 
 lazy_static! {
@@ -414,41 +414,10 @@ impl Display for CommitDetail<'_> {
 
 // endregion CommitDetail
 
-// region GlobalStatsExt
-
-impl GlobalStatsExt for HashMap<Author, Vec<MinimalCommitDetail<'_>>> {
-	fn global_stats(&self, sort_stats_by: SortStatsBy) -> Vec<GlobalStat> {
-		let mut global_stats = self
-			.iter()
-			.map(|(key, value)| {
-				let stats = value.iter().map(|item| item.stats).reduce(|acc, item| acc + item).unwrap();
-				let total_commits = value.len();
-				GlobalStat {
-					author: Author::from(key),
-					commits_count: total_commits,
-					stats,
-				}
-			})
-			.collect::<Vec<_>>();
-
-		match sort_stats_by {
-			SortStatsBy::Commits => global_stats.sort_by_key(|item| item.commits_count),
-			SortStatsBy::FilesChanged => global_stats.sort_by_key(|item| item.stats.files_changed),
-			SortStatsBy::LinesAdded => global_stats.sort_by_key(|item| item.stats.lines_added),
-			SortStatsBy::LinesDeleted => global_stats.sort_by_key(|item| item.stats.lines_deleted),
-		}
-
-		global_stats.reverse();
-		global_stats
-	}
-}
-
-// endregion GlobalStatsExt
-
 // region CommitStatsExt
 
 impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
-	fn reduced_stats(&self) -> HashMap<Author, Vec<MinimalCommitDetail>> {
+	fn commits_per_author(&self) -> CommitsPerAuthor {
 		let mut hashmap: HashMap<Author, Vec<MinimalCommitDetail>> = HashMap::new();
 
 		let mut cloned = self.to_vec();
@@ -475,7 +444,7 @@ impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
 			vec.insert(0, minimal_commit);
 			hashmap.insert(author.to_owned(), vec);
 		}
-		hashmap
+		CommitsPerAuthor(hashmap)
 	}
 
 	fn commits_per_month(mut self) -> CommitsPerMonth {
@@ -709,3 +678,39 @@ impl CommitsHeatMap {
 }
 
 // endregion CommitsHeatmap
+
+// region CommitsPerAuthor
+
+impl CommitsPerAuthor<'_> {
+	pub fn detailed_stats(&self) -> &HashMap<Author, Vec<MinimalCommitDetail<'_>>> {
+		&self.0
+	}
+
+	pub fn global_stats(&self, sort_stats_by: SortStatsBy) -> Vec<GlobalStat> {
+		let mut global_stats = self
+			.0
+			.iter()
+			.map(|(key, value)| {
+				let stats = value.iter().map(|item| item.stats).reduce(|acc, item| acc + item).unwrap();
+				let total_commits = value.len();
+				GlobalStat {
+					author: Author::from(key),
+					commits_count: total_commits,
+					stats,
+				}
+			})
+			.collect::<Vec<_>>();
+
+		match sort_stats_by {
+			SortStatsBy::Commits => global_stats.sort_by_key(|item| item.commits_count),
+			SortStatsBy::FilesChanged => global_stats.sort_by_key(|item| item.stats.files_changed),
+			SortStatsBy::LinesAdded => global_stats.sort_by_key(|item| item.stats.lines_added),
+			SortStatsBy::LinesDeleted => global_stats.sort_by_key(|item| item.stats.lines_deleted),
+		}
+
+		global_stats.reverse();
+		global_stats
+	}
+}
+
+// endregion CommitsPerAuthor

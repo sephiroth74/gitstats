@@ -1,13 +1,111 @@
-use std::collections::HashMap;
-
-use crate::{
-	Author, CommitsHeatMap, CommitsPerDayHour, CommitsPerMonth, CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SortStatsBy,
-};
+use crate::{CommitsHeatMap, CommitsPerAuthor, CommitsPerDayHour, CommitsPerMonth, CommitsPerWeekday};
 
 pub trait CommitStatsExt {
-	fn reduced_stats(&self) -> HashMap<Author, Vec<MinimalCommitDetail>>;
+	/// Return the commits per author
+	///
+	/// # Examples:
+	/// ```rust
+	///
+	/// use comfy_table::Table;
+	/// use gitstats::{CommitArgs, Repo, SortStatsBy};
+	/// fn contributors_stats() {
+	/// 	let repo = Repo::new("/custom/repo");
+	/// 	let commits = repo.list_commits(CommitArgs::default()).unwrap();
+	/// 	let stats = repo.commits_stats(&commits).unwrap();
+	/// 	let commits_per_author = stats.commits_per_author();
+	/// 	let mut global_stats = commits_per_author.global_stats(SortStatsBy::LinesAdded);
+	/// 	global_stats.sort_by(|a,b|b.commits_count.cmp(&a.commits_count));
+	///
+	/// 	let mut table = Table::new();
+	/// 	table.set_header(["Author", "Commits", "Lines"]);
+	///
+	/// 	for global_stat in global_stats.iter() {
+	/// 		let commits_count = global_stat.commits_count;
+	/// 		let total_lines = global_stat.stats.lines_added;
+	/// 		table.add_row([(&global_stat.author).name.to_string(), commits_count.to_string(), total_lines.to_string()]);
+	/// 	}
+	///
+	/// 	println!("{table}");
+	/// }
+	///
+	/// ```
+	///
+	/// It will print something like this:
+	///
+	/// ```
+	///
+	/// +---------------------+---------+--------+
+	/// | Author              | Commits | Lines  |
+	/// +========================================+
+	/// | John Doe            | 54      | 13355  |
+	/// |---------------------+---------+--------|
+	/// | Jane Doe            | 48      | 1355   |
+	/// |---------------------+---------+--------|
+	/// | Alessandro Crugnola | 45      | 172240 |
+	/// |---------------------+---------+--------|
+	/// | Michael Binary      | 31      | 13845  |
+	/// |---------------------+---------+--------|
+	/// | David One           | 9       | 56     |
+	/// +---------------------+---------+--------+
+	/// ```
+	fn commits_per_author(&self) -> CommitsPerAuthor;
+
+	///
+	/// # Examples:
+	/// ```rust
+	///
+	/// use chrono::{Months, Utc};
+	/// use itertools::Itertools;
+	/// use textplots::{AxisBuilder, Chart, LabelBuilder, LabelFormat, LineStyle, Plot, Shape, TickDisplay, TickDisplayBuilder};
+	/// use gitstats::{CommitArgs, Repo};
+	///
+	/// fn commits_per_month() {
+	/// 	let repo = Repo::new("/custom/path");
+	/// 	let commits = repo.list_commits(CommitArgs::default()).unwrap();
+	/// 	let stats = repo.commits_stats(&commits).unwrap();
+	/// 	let commits_per_months = stats.commits_per_month();
+	/// 	let global_stats = commits_per_months.global_stats();
+	///
+	/// 	let mut points = Vec::new();
+	/// 	let start = Utc::now().checked_sub_months(Months::new(6)).unwrap();
+	/// 	for (index, value) in global_stats.iter().sorted_by_key(|(key, _)| key.to_string()).enumerate() {
+	/// 		points.push((index as f32, value.1.commits_count as f32));
+	/// 	}
+	/// 	Chart::new_with_y_range(100, 50, 0.0, 5.0, 0.0, 50.0)
+	/// 		.lineplot(&Shape::Bars(&points))
+	/// 		.x_axis_style(LineStyle::Solid)
+	/// 		.y_axis_style(LineStyle::Solid)
+	/// 		.y_tick_display(TickDisplay::Dense)
+	/// 		.x_label_format(LabelFormat::Custom(Box::new(move |val| {
+	/// 			let new_start = start.checked_add_months(Months::new(val as u32)).unwrap();
+	/// 			format!("{}", new_start.format("%Y-%m"))
+	/// 		})))
+	/// 		.display();
+	/// }
+	/// ```
+	///
+	/// It will print something like this:
+	/// ```
+	///
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 50.0
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡤⠤⠤⠤⠤⠤⠤⠤⠤⠤⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+	/// ⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 41.7
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 33.3
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ 25.0
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡗⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡗⠒⠒⠒⠒⠒⠒⠒⠒⠒⡆ 16.7
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇ 8.3
+	/// ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇
+	/// ⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁ 0.0
+	/// 2023-07                                    2023-12
+	/// ```
 	fn commits_per_month(self) -> CommitsPerMonth;
+
 	fn commits_per_weekday(self) -> CommitsPerWeekday;
+
 	fn commits_per_day_hour(self) -> CommitsPerDayHour;
 
 	/// Return a commit heatmap
@@ -101,8 +199,4 @@ pub trait CommitStatsExt {
 	/// ```
 	///
 	fn commits_heatmap(self) -> CommitsHeatMap;
-}
-
-pub trait GlobalStatsExt {
-	fn global_stats(&self, sort_stats_by: SortStatsBy) -> Vec<GlobalStat>;
 }
