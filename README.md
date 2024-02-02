@@ -1,5 +1,9 @@
-# gitstats
-generate some stats for git repositories
+# gitstats (for Rust)
+
+Generate some stats for git repositories
+
+[![crates.io](https://img.shields.io/crates/v/gitstats.svg)](https://crates.io/crates/gitstats/)
+
 
 # Examples:
 
