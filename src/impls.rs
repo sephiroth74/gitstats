@@ -261,6 +261,38 @@ impl IntoIterator for CommitArgs {
 	}
 }
 
+impl Display for CommitArgs {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		let mut s = vec![];
+		if let Some(author) = self.author.as_ref() {
+			s.push(format!("author:{}", author));
+		}
+		if let Some(exclude_author) = self.exclude_author.as_ref() {
+			s.push(format!("exclude author:{}", exclude_author));
+		}
+
+		if self.exclude_merges {
+			s.push("exclude_merges:true".to_string());
+		}
+
+		if let Some(value) = self.target_branch.as_ref() {
+			s.push(format!("target_branch:{}", value));
+		}
+
+		if let Some(value) = self.since.as_ref() {
+			let datetime = DateTime::from_timestamp(*value, 0).unwrap();
+			s.push(format!("since={:}", datetime.format("%Y-%m-%d").to_string()).into());
+		}
+
+		if let Some(value) = self.until.as_ref() {
+			let datetime = DateTime::from_timestamp(*value, 0).unwrap();
+			s.push(format!("until:{:}", datetime.format("%Y-%m-%d").to_string()).into());
+		}
+
+		write!(f, "{}", s.join(", "))
+	}
+}
+
 // endregion CommitArgs
 
 // region CommitStats
@@ -343,7 +375,7 @@ impl std::ops::AddAssign for SimpleStat {
 	}
 }
 
-impl From<CommitDetail<'_>> for SimpleStat {
+impl From<CommitDetail> for SimpleStat {
 	fn from(value: CommitDetail) -> Self {
 		value.stats.into()
 	}
@@ -362,8 +394,8 @@ impl From<CommitStats> for SimpleStat {
 
 // region MinimalCommitDetail
 
-impl<'a> From<CommitDetail<'a>> for MinimalCommitDetail<'a> {
-	fn from(value: CommitDetail<'a>) -> Self {
+impl From<CommitDetail> for MinimalCommitDetail {
+	fn from(value: CommitDetail) -> Self {
 		MinimalCommitDetail {
 			hash: value.hash,
 			author_timestamp: value.author_timestamp,
@@ -372,7 +404,7 @@ impl<'a> From<CommitDetail<'a>> for MinimalCommitDetail<'a> {
 	}
 }
 
-impl Display for MinimalCommitDetail<'_> {
+impl Display for MinimalCommitDetail {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{} {}", self.hash, self.stats)
 	}
@@ -392,14 +424,14 @@ impl Default for SortStatsBy {
 
 // region CommitDetail
 
-impl CommitDetail<'_> {
+impl CommitDetail {
 	pub fn get_author_datetime(&self) -> DateTime<Utc> {
 		let naive = NaiveDateTime::from_timestamp_opt(self.author_timestamp, 0).unwrap();
 		DateTime::from_naive_utc_and_offset(naive, Utc)
 	}
 }
 
-impl Display for CommitDetail<'_> {
+impl Display for CommitDetail {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
@@ -416,7 +448,7 @@ impl Display for CommitDetail<'_> {
 
 // region CommitStatsExt
 
-impl<'a> CommitStatsExt for Vec<CommitDetail<'_>> {
+impl<'a> CommitStatsExt for Vec<CommitDetail> {
 	fn commits_per_author(&self) -> CommitsPerAuthor {
 		let mut hashmap: HashMap<Author, Vec<MinimalCommitDetail>> = HashMap::new();
 
@@ -681,8 +713,8 @@ impl CommitsHeatMap {
 
 // region CommitsPerAuthor
 
-impl CommitsPerAuthor<'_> {
-	pub fn detailed_stats(&self) -> &HashMap<Author, Vec<MinimalCommitDetail<'_>>> {
+impl CommitsPerAuthor {
+	pub fn detailed_stats(&self) -> &HashMap<Author, Vec<MinimalCommitDetail>> {
 		&self.0
 	}
 

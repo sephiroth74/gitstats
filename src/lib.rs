@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 mod impls;
 mod repo;
 mod test;
-mod traits;
+pub mod traits;
 
 #[derive(Debug, Clone)]
 pub struct Repo {
@@ -43,18 +43,17 @@ pub struct CommitStats {
 
 #[derive(Debug, Clone, Serialize)]
 #[allow(dead_code)]
-pub struct CommitDetail<'a> {
-	pub hash: &'a CommitHash,
+pub struct CommitDetail {
+	pub hash: CommitHash,
 	pub author: Author,
-	pub subject: String,
 	pub author_timestamp: i64,
 	pub stats: CommitStats,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[allow(dead_code)]
-pub struct MinimalCommitDetail<'a> {
-	pub hash: &'a CommitHash,
+pub struct MinimalCommitDetail {
+	pub hash: CommitHash,
 	pub author_timestamp: i64,
 	pub stats: CommitStats,
 }
@@ -80,7 +79,7 @@ pub enum SortStatsBy {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct CommitsPerAuthor<'a>(pub(crate) HashMap<Author, Vec<MinimalCommitDetail<'a>>>);
+pub struct CommitsPerAuthor(pub(crate) HashMap<Author, Vec<MinimalCommitDetail>>);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitsPerWeekday(pub(crate) HashMap<u8, HashMap<Author, SimpleStat>>);

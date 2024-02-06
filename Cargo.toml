@@ -1,6 +1,6 @@
 [package]
 name = "gitstats"
-version = "0.0.1-alpha4"
+version = "0.0.1-alpha6"
 edition = "2021"
 license = "MIT"
 description = "fetch stats from a git repository"
@@ -20,9 +20,11 @@ tracing = "0.1.40"
 lazy_static = "1.4.0"
 regex = "1.10.3"
 num-traits = "0.2.17"
+which = "6.0.0"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.18"
 textplots = "0.8.6"
 itertools = "0.12.1"
 comfy-table = "7.1.0"
+humansize = "2.1.3"

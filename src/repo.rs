@@ -7,13 +7,15 @@ use anyhow::{anyhow, Context};
 use lazy_static::lazy_static;
 use rayon::prelude::*;
 use regex::Regex;
-use simple_cmd::CommandBuilder;
+use simple_cmd::{CommandBuilder, Vec8ToString};
+use which::which;
 
 use crate::{Author, CommitArgs, CommitDetail, CommitHash, CommitStats, Repo};
 
 lazy_static! {
 	static ref SHORT_STATS_RE: Regex = regex::Regex::new("(?<files>[\\d]+) files? changed(, (?<insertions>[\\d]+) insertions?\\(\\+\\))?(, (?<deletions>[\\d]+) deletions?\\(\\-\\))?$").unwrap();
 	static ref NUMSTATS_RE: Regex = regex::Regex::new("^(?<additions>[\\d]+)\\s+(?<deletions>[\\d]+)\\s+(?<filename>[^\n]+)").unwrap();
+	static ref SIZE_RE: Regex = regex::RegexBuilder::new(r#"^size-pack:\s*(?<size>[\d]+)$"#).multi_line(true).build().unwrap();
 }
 
 impl Repo {
@@ -22,7 +24,7 @@ impl Repo {
 	/// ```rust
 	/// use gitstats::Repo;
 	/// fn main() {
-	///     let repo_dir = "/custom/path/to/repo";
+	///     let repo_dir = "#/custom/path/to/repo";
 	///     let repo = Repo::from(&repo_dir);
 	/// }
 	/// ```
@@ -49,7 +51,7 @@ impl Repo {
 	/// }
 	/// ```
 	pub fn fetch(&self) -> anyhow::Result<()> {
-		self.git()
+		self.git()?
 			.arg("fetch")
 			.build()
 			.output()
@@ -59,7 +61,7 @@ impl Repo {
 
 	/// Fetch all the remotes
 	pub fn fetch_all(&self) -> anyhow::Result<()> {
-		self.git()
+		self.git()?
 			.args([
 				"fetch", "--all",
 			])
@@ -87,7 +89,7 @@ impl Repo {
 	/// ```
 	pub fn list_commits(&self, options: CommitArgs) -> anyhow::Result<Vec<CommitHash>> {
 		options.validate()?;
-		let mut command = self.git().arg("log");
+		let mut command = self.git()?.arg("log");
 		command = command.with_args(options).with_arg("--reverse");
 		let output = command.build().output()?;
 		Ok(output
@@ -95,6 +97,52 @@ impl Repo {
 			.lines()
 			.filter_map(|line| if let Ok(line) = line { Some(CommitHash(line)) } else { None })
 			.collect::<Vec<_>>())
+	}
+
+	pub fn first_commit(&self) -> anyhow::Result<Option<CommitDetail>> {
+		let command = self.git()?.with_args(&[
+			"rev-list",
+			"--max-parents=0",
+			"HEAD",
+		]);
+		let output = command.build().output()?;
+		if let Some(commit) = output.stdout.as_str().map(|line| CommitHash(line.trim().to_string())) {
+			Ok(Some(self.commit_stats(commit)?))
+		} else {
+			Ok(None)
+		}
+	}
+
+	pub fn last_commit(&self) -> anyhow::Result<Option<CommitDetail>> {
+		let command = self.git()?.with_args(&[
+			"rev-list", "-n", "1", "HEAD",
+		]);
+		let output = command.build().output()?;
+		if let Some(commit) = output.stdout.as_str().map(|line| CommitHash(line.trim().to_string())) {
+			Ok(Some(self.commit_stats(commit)?))
+		} else {
+			Ok(None)
+		}
+	}
+
+	pub fn size(&self) -> anyhow::Result<u64> {
+		let command = self.git()?.with_args(&[
+			"count-objects",
+			"-v",
+		]);
+		let output = command.build().output()?;
+		let string = output
+			.stdout
+			.as_str()
+			.ok_or(anyhow!("failed to find repository size"))?
+			.trim();
+		if let Some(find) = SIZE_RE.captures(string) {
+			let size_string = find.name("size").unwrap().as_str();
+			let size: u64 = size_string.parse::<u64>()?;
+			Ok(size)
+		} else {
+			Err(anyhow::Error::msg("failed to find repository size"))
+		}
 	}
 
 	/// Extract details from a list of commits
@@ -114,19 +162,22 @@ impl Repo {
 	/// }
 	///
 	/// ```
-	pub fn commits_stats<'c>(&self, commits: &'c Vec<CommitHash>) -> anyhow::Result<Vec<CommitDetail<'c>>> {
-		commits.into_par_iter().map(|commit| self.commit_stats(commit)).collect()
+	pub fn commits_stats(&self, commits: &Vec<CommitHash>) -> anyhow::Result<Vec<CommitDetail>> {
+		commits
+			.into_par_iter()
+			.map(|commit| self.commit_stats(commit.to_owned()))
+			.collect()
 	}
 
 	/// Extract details from a commit hash
-	pub fn commit_stats<'c>(&self, commit: &'c CommitHash) -> anyhow::Result<CommitDetail<'c>> {
-		let mut command = self.git().with_debug(false);
-		let hash: &str = commit.into();
+	pub fn commit_stats(&self, commit: CommitHash) -> anyhow::Result<CommitDetail> {
+		let mut command = self.git()?.with_debug(false);
+		let hash: &str = (&commit).into();
 
 		command = command
 			.arg("show")
 			.arg("--shortstat")
-			.arg("--pretty=format:%H\n%aN\n%aE\n%at\n%s")
+			.arg("--pretty=\"format:%H\n%aN\n%aE\n%at\n\"")
 			.arg(hash);
 
 		let result = command.build().output()?;
@@ -138,9 +189,8 @@ impl Repo {
 		let mut author_name: Option<String> = None;
 		let mut author_email: Option<String> = None;
 		let mut author_date: Option<i64> = None;
-		let mut commit_subject: Option<String> = None;
 
-		for index in 0..size - 1 {
+		for index in 0..size {
 			let line = &lines[index];
 
 			match index {
@@ -151,7 +201,6 @@ impl Repo {
 					let timestamp = line.parse::<i64>().expect("invalid timestamp");
 					author_date = Some(timestamp);
 				}
-				4 => commit_subject = Some(line.to_string()),
 				_ => {
 					// unexpected
 				}
@@ -162,7 +211,7 @@ impl Repo {
 		let mut insertions: u32 = 0;
 		let mut deletions: u32 = 0;
 
-		if let Some(find) = SHORT_STATS_RE.captures(lines.last().ok_or(anyhow!("failed to find short stats"))?.as_str()) {
+		if let Some(find) = SHORT_STATS_RE.captures(lines.last().ok_or(anyhow!("failed to find last line"))?.as_str()) {
 			files = find.name("files").map_or(0, |f| f.as_str().parse::<u32>().unwrap_or(0));
 			insertions = find.name("insertions").map_or(0, |f| f.as_str().parse::<u32>().unwrap_or(0));
 			deletions = find.name("deletions").map_or(0, |f| f.as_str().parse::<u32>().unwrap_or(0));
@@ -187,7 +236,6 @@ impl Repo {
 		let commit = CommitDetail {
 			hash: commit,
 			author: Author::new(author_name.unwrap()).with_email_opt(author_email.as_deref()),
-			subject: commit_subject.unwrap(),
 			author_timestamp: author_date.unwrap(),
 			stats,
 		};
@@ -196,8 +244,10 @@ impl Repo {
 	}
 
 	/// Will panic is git is not found
-	fn git(&self) -> CommandBuilder {
-		CommandBuilder::new("git").current_dir(&self.inner).with_debug(true)
+	fn git(&self) -> anyhow::Result<CommandBuilder> {
+		let git = which("git")?;
+		//Ok(CommandBuilder::new(git).current_dir(&self.inner).with_debug(true))
+		Ok(CommandBuilder::new(git).with_debug(true).with_arg("-C").with_arg(&self.inner))
 	}
 }
 

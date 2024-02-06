@@ -6,13 +6,14 @@ mod test {
 
 	use chrono::{DateTime, Months, Utc, Weekday};
 	use comfy_table::Table;
+	use humansize::{BaseUnit, FormatSizeOptions};
 	use itertools::Itertools;
 	use lazy_static::lazy_static;
 	use num_traits::cast::FromPrimitive;
 	use textplots::{AxisBuilder, LabelBuilder, LabelFormat, LineStyle, Plot, Shape, TickDisplay, TickDisplayBuilder};
 
 	use crate::traits::CommitStatsExt;
-	use crate::{Author, CommitArgs, CommitHash, Repo, SortStatsBy};
+	use crate::{Author, CommitArgs, CommitDetail, CommitHash, Repo, SortStatsBy};
 
 	lazy_static! {
 		static ref SINCE: DateTime<Utc> = Utc::now().checked_sub_months(Months::new(6)).unwrap();
@@ -67,19 +68,54 @@ mod test {
 	}
 
 	#[test]
+	fn test_first_last_commit() {
+		init_log();
+		let repo = checkout_repo();
+		let first_commit = repo.first_commit().unwrap().unwrap();
+		println!("first commit: {first_commit:?}");
+
+		let last_commit = repo.last_commit().unwrap().unwrap();
+		println!("last commit: {last_commit:?}");
+		let first_date = first_commit.get_author_datetime();
+		let last_date = last_commit.get_author_datetime();
+		println!("first date: {first_date}");
+		println!("last date: {last_date}");
+	}
+
+	#[test]
+	fn test_repo_size() {
+		init_log();
+		let repo = checkout_repo();
+		let size = repo.size().unwrap() * 1000;
+		let size_string = humansize::format_size(
+			size,
+			FormatSizeOptions::default()
+				.base_unit(BaseUnit::Byte)
+				.decimal_places(1)
+				.decimal_zeroes(1),
+		);
+		println!("repository size: {size_string}");
+	}
+
+	#[test]
 	fn test_list_commits() {
 		init_log();
 		let mut ticker = Ticker::new();
 		let repo = checkout_repo();
 		ticker.tick();
-		let commits = repo.list_commits(COMMIT_ARGS.clone()).unwrap();
+
+		let args = CommitArgs::default();
+
+		let commits = repo.list_commits(args).unwrap();
 		println!("listed commits in {:?}", ticker.tick().0);
 		println!("total commits: {}", commits.len());
 		assert!(commits.len() > 0);
 
-		for commit in &commits {
-			println!("commits: {}", commit);
-		}
+		ticker.tick();
+		let stats = repo.commits_stats(&commits).unwrap();
+		println!("listed stats in {:?}", ticker.tick().0);
+		println!("total stats: {}", stats.len());
+		assert_eq!(commits.len(), stats.len());
 	}
 
 	#[test]
@@ -90,7 +126,7 @@ mod test {
 		println!("total commits: {}", commits.len());
 		assert!(commits.len() > 0);
 
-		let stats = repo.commits_stats(&commits).unwrap();
+		let stats: Vec<CommitDetail> = repo.commits_stats(&commits).unwrap();
 		assert_eq!(commits.len(), stats.len());
 
 		let mut ticker = Ticker::new();
@@ -155,7 +191,7 @@ mod test {
 		init_log();
 		let repo = checkout_repo();
 		let commit_hash = CommitHash::try_from("a9ae91ebf675cc57fb93cbcb6e179f89f0199e8e").unwrap();
-		let stats = repo.commit_stats(&commit_hash).unwrap();
+		let stats = repo.commit_stats(commit_hash).unwrap();
 		println!("stats: {}", stats);
 	}
 
