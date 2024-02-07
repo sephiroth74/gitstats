@@ -10,7 +10,7 @@ use regex::Regex;
 use simple_cmd::{CommandBuilder, Vec8ToString};
 use which::which;
 
-use crate::{Author, CommitArgs, CommitDetail, CommitHash, CommitStats, Repo};
+use crate::{Author, CommitArgs, CommitDetail, CommitHash, CommitStats, Detail, Repo};
 
 lazy_static! {
 	static ref SHORT_STATS_RE: Regex = regex::Regex::new("(?<files>[\\d]+) files? changed(, (?<insertions>[\\d]+) insertions?\\(\\+\\))?(, (?<deletions>[\\d]+) deletions?\\(\\-\\))?$").unwrap();
@@ -125,6 +125,7 @@ impl Repo {
 		}
 	}
 
+	/// Return the repository size (in Kilobytes)
 	pub fn size(&self) -> anyhow::Result<u64> {
 		let command = self.git()?.with_args(&[
 			"count-objects",
@@ -143,6 +144,29 @@ impl Repo {
 		} else {
 			Err(anyhow::Error::msg("failed to find repository size"))
 		}
+	}
+
+	/// Returns the total commits
+	pub fn commits_count(&self) -> anyhow::Result<usize> {
+		let command = self.git()?.with_args(&[
+			"rev-list", "--count", "--all",
+		]);
+		let output = command.build().output()?;
+		let string = output.stdout.lines().nth(0).ok_or(anyhow!("failed to get total commits"))??;
+		Ok(string.parse::<usize>()?)
+	}
+
+	pub fn details(&self) -> anyhow::Result<Detail> {
+		let size = self.size()?;
+		let first_commit = self.first_commit()?;
+		let last_commit = self.last_commit()?;
+		let commits_count = self.commits_count()?;
+		Ok(Detail {
+			size,
+			commits_count,
+			first_commit: first_commit.map(|c| c.author_timestamp),
+			last_commit: last_commit.map(|c| c.author_timestamp),
+		})
 	}
 
 	/// Extract details from a list of commits

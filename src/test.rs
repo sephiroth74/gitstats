@@ -98,6 +98,22 @@ mod test {
 	}
 
 	#[test]
+	fn test_repo_detail() {
+		init_log();
+		let repo = checkout_repo();
+		let details = repo.details().unwrap();
+		println!("repository detail: {details}");
+	}
+
+	#[test]
+	fn test_commits_count() {
+		init_log();
+		let repo = checkout_repo();
+		let commits_count = repo.commits_count().unwrap();
+		println!("total commits: {commits_count}");
+	}
+
+	#[test]
 	fn test_list_commits() {
 		init_log();
 		let mut ticker = Ticker::new();

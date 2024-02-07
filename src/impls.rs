@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use crate::traits::CommitStatsExt;
 use crate::{
 	Author, CommitArgs, CommitArgsBuilder, CommitDetail, CommitHash, CommitStats, CommitsHeatMap, CommitsPerAuthor,
-	CommitsPerDayHour, CommitsPerMonth, CommitsPerWeekday, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
+	CommitsPerDayHour, CommitsPerMonth, CommitsPerWeekday, Detail, GlobalStat, MinimalCommitDetail, SimpleStat, SortStatsBy,
 };
 
 lazy_static! {
@@ -746,3 +746,28 @@ impl CommitsPerAuthor {
 }
 
 // endregion CommitsPerAuthor
+
+// region Detail
+
+impl Display for Detail {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		let mut strings = vec![];
+		strings.push(format!("size={}", self.size));
+		strings.push(format!("commits_count={}", self.commits_count));
+		if let Some(value) = self.first_commit {
+			if let Some(naive) = NaiveDateTime::from_timestamp_opt(value, 0) {
+				let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+				strings.push(format!("first_commit={}", datetime));
+			}
+		}
+		if let Some(value) = self.last_commit {
+			if let Some(naive) = NaiveDateTime::from_timestamp_opt(value, 0) {
+				let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+				strings.push(format!("last_commit={}", datetime));
+			}
+		}
+		write!(f, "{}", strings.join(", "))
+	}
+}
+
+// endregion Detail

@@ -94,3 +94,15 @@ pub struct CommitsPerMonth(pub(crate) HashMap<String, HashMap<Author, SimpleStat
 /// Contains an hashmap where the key is the Author and the value is a matrix[weekday, hour] of stats
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitsHeatMap(pub(crate) HashMap<Author, Vec<Vec<SimpleStat>>>);
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct Detail {
+	/// repository size in Kilobytes
+	pub size: u64,
+	/// total commits
+	pub commits_count: usize,
+	// first commit timestamp
+	pub first_commit: Option<i64>,
+	// last commit timestamp
+	pub last_commit: Option<i64>,
+}
